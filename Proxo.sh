@@ -3,7 +3,6 @@
 # SYSTEM KERNEL INTEGRITY CHECK V10.6
 # ==========================================
 
-
 _h1="aHR0cHM6Ly9jcmFlbC1rZWVwci5wbHVt"
 _h2="c29mdHdhcmVkZXYud29ya2Vycy5kZXY="
 _k1="Q3JAYWVsLVYxMC1VbHRpbUB0ZS1T"
